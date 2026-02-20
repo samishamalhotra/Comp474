@@ -237,6 +237,64 @@
 ;;; Fire after eligibility is marked but before phase transitions
 ;;; ============================================================
 
+(defrule explain-blocked-course
+   (phase (current compute-eligibility))
+   (blocked (student-id ?id) (code ?c) (reason ?r))
+   =>
+   (assert (warning (student-id ?id)
+      (message
+         (str-cat "Cannot take " ?c ": "
+            (if (eq ?r missing-prereq) then "missing prerequisite"
+            else (if (eq ?r low-gpa) then "GPA below requirement"
+            else (if (eq ?r already-completed) then "already completed"
+            else (if (eq ?r year-too-low) then "year standing too low"
+            else (if (eq ?r wrong-semester) then "not offered this semester"
+            else (if (eq ?r difficulty-too-high) then "exceeds preferred workload"
+            else "restricted")))))))))
+
+(deffunction count-completed (?id)
+   (bind ?n 0)
+   (do-for-all-facts ((?c completed))
+      (eq ?c:student-id ?id)
+      (bind ?n (+ ?n 1)))
+   ?n)
+
+(defrule nearing-graduation
+   (phase (current compute-eligibility))
+   (active-student ?id)
+   (student (id ?id) (year 4))
+   (test (>= (count-completed ?id) 12))
+   =>
+   (assert (warning (student-id ?id)
+      (message "You appear close to completing degree requirements."))))
+
+(defrule suggest-comp249-gateway
+   (phase (current compute-eligibility))
+   (active-student ?id)
+   (eligible (student-id ?id) (code COMP249))
+   (not (completed (student-id ?id) (code COMP249)))
+   =>
+   (assert (warning (student-id ?id)
+      (message "COMP249 is a gateway course required for many advanced CS courses."))))
+
+(defrule warn-low-gpa-heavy
+   (phase (current compute-eligibility))
+   (student (id ?id) (gpa ?g))
+   (session (student-id ?id) (workload heavy))
+   (test (< ?g 2.7))
+   =>
+   (assert (warning (student-id ?id)
+      (message "Heavy workload may be risky given your current GPA."))))
+
+(defrule warn-light-load-senior
+   (phase (current compute-eligibility))
+   (student (id ?id) (year 4))
+   (session (student-id ?id) (desired-credits ?cr))
+   (test (< ?cr 9))
+   =>
+   (assert (warning (student-id ?id)
+      (message "Taking fewer than 9 credits may delay graduation."))))
+
 (defrule suggest-encs282-early
    "Recommend ENCS282 early for year 1-2 students"
    (declare (salience 10))
@@ -249,6 +307,14 @@
    =>
    (assert (warning (student-id ?id) 
                    (message "ENCS282 (Technical Writing) is required with no prerequisites - consider taking it early"))))
+
+(defrule missing-encs393
+   (phase (current compute-eligibility))
+   (student (id ?id) (year 4))
+   (not (completed (student-id ?id) (code ENCS393)))
+   =>
+   (assert (warning (student-id ?id)
+      (message "ENCS393 is required for graduation — consider taking it soon."))))
 
 (defrule suggest-ai-track-high-gpa
    "Suggest AI track to high GPA year 3+ students"
