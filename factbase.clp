@@ -63,6 +63,12 @@
    (slot workload))    ; light | moderate | heavy
 
 
+(deftemplate warning
+   "Records advisory warnings and suggestions for the student"
+   (slot student-id)
+   (slot message))
+
+
 ;;; ============================================================
 ;;; COURSE CATALOG
 ;;; Credits, difficulty, and semester availability per Concordia

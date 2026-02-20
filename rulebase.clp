@@ -203,7 +203,6 @@
    (active-student ?id)
    (session (student-id ?id) (semester ?sem))
    (course (code ?c) (semester ?avail))
-   ;; 1=fall, 2=winter, 3=summer. Block if course is fall-only but student chose winter, etc.
    (test (not (or (eq ?avail both)
                   (and (= ?sem 1) (eq ?avail fall))
                   (and (= ?sem 2) (eq ?avail winter)))))
@@ -217,7 +216,6 @@
    (active-student ?id)
    (session (student-id ?id) (workload ?wl))
    (course (code ?c) (difficulty ?d))
-   ;; light: block medium and hard. moderate: block hard only. heavy: block nothing.
    (test (or (and (eq ?wl light)    (or (eq ?d medium) (eq ?d hard)))
              (and (eq ?wl moderate) (eq ?d hard))))
    =>
@@ -232,6 +230,80 @@
    (not (blocked (student-id ?id) (code ?c) (reason ?)))
    =>
    (assert (eligible (student-id ?id) (code ?c))))
+
+
+;;; ============================================================
+;;; ADVISORY RULES (salience 10)
+;;; Fire after eligibility is marked but before phase transitions
+;;; ============================================================
+
+(defrule suggest-encs282-early
+   "Recommend ENCS282 early for year 1-2 students"
+   (declare (salience 10))
+   (phase (current compute-eligibility))
+   (active-student ?id)
+   (student (id ?id) (year ?y))
+   (test (<= ?y 2))
+   (eligible (student-id ?id) (code ENCS282))
+   (not (completed (student-id ?id) (code ENCS282)))
+   =>
+   (assert (warning (student-id ?id) 
+                   (message "ENCS282 (Technical Writing) is required with no prerequisites - consider taking it early"))))
+
+(defrule suggest-ai-track-high-gpa
+   "Suggest AI track to high GPA year 3+ students"
+   (declare (salience 10))
+   (phase (current compute-eligibility))
+   (active-student ?id)
+   (student (id ?id) (gpa ?g) (year ?y))
+   (test (and (>= ?g 3.5) (>= ?y 3)))
+   (eligible (student-id ?id) (code COMP472))
+   =>
+   (assert (warning (student-id ?id)
+                   (message "Your high GPA qualifies you for AI track courses like COMP472, COMP474, COMP432"))))
+
+(defrule warn-behind-on-core-year3
+   "Warn year 3+ students missing 200-level core"
+   (declare (salience 10))
+   (phase (current compute-eligibility))
+   (active-student ?id)
+   (student (id ?id) (year ?y))
+   (test (>= ?y 3))
+   (not (completed (student-id ?id) (code COMP228)))
+   =>
+   (assert (warning (student-id ?id)
+                   (message "You are missing 200-level core courses - catch up to stay on track"))))
+
+(defrule suggest-core-priority-general
+   "Suggest prioritizing core courses when both core and electives are available"
+   (declare (salience 10))
+   (phase (current compute-eligibility))
+   (active-student ?id)
+   (eligible (student-id ?id) (code ?core))
+   (course (code ?core) (category core))
+   (eligible (student-id ?id) (code ?elec))
+   (course (code ?elec) (category cs-elective))
+   =>
+   (assert (warning (student-id ?id)
+                   (message "Tip: Prioritize core courses over electives to stay on graduation track"))))
+
+(defrule warn-many-hard-courses-available
+   "Warn when many hard courses are available"
+   (declare (salience 10))
+   (phase (current compute-eligibility))
+   (active-student ?id)
+   (eligible (student-id ?id) (code ?c1))
+   (course (code ?c1) (difficulty hard))
+   (eligible (student-id ?id) (code ?c2))
+   (course (code ?c2) (difficulty hard))
+   (test (neq ?c1 ?c2))
+   (eligible (student-id ?id) (code ?c3))
+   (course (code ?c3) (difficulty hard))
+   (test (and (neq ?c1 ?c3) (neq ?c2 ?c3)))
+   =>
+   (assert (warning (student-id ?id)
+                   (message "Many hard courses are available - consider balancing your schedule with easier courses"))))
+
 
 (defrule finish-eligibility
    "Advance to the output phase once eligibility is fully determined"
@@ -264,20 +336,56 @@
    (printout t "  Workload  : " ?wl-name                     crlf)
    (printout t "  Target    : " ?max " credits"              crlf)
    (printout t "==========================================" crlf)
+   
+   ;; Print warnings first
+   (bind ?has-warnings FALSE)
+   (do-for-all-facts ((?w warning))
+      (eq ?w:student-id ?id)
+      (if (not ?has-warnings)
+         then
+         (printout t crlf "ADVISOR NOTES:" crlf)
+         (bind ?has-warnings TRUE))
+      (printout t "  * " ?w:message crlf))
+   (if ?has-warnings
+      then
+      (printout t crlf "==========================================" crlf))
+   
    (bind ?total 0)
    (bind ?found FALSE)
-   ;; Easy courses first, then medium, then hard — gradual difficulty ramp
-   (foreach ?diff (create$ easy medium hard)
-      (do-for-all-facts ((?e eligible) (?co course))
-         (and (eq ?e:student-id ?id)
-              (eq ?e:code ?co:code)
-              (eq ?co:difficulty ?diff))
-         (if (<= (+ ?total ?co:credits) ?max)
-            then
-            (printout t "  " ?co:code " - " ?co:name
-                      " (" ?co:credits " cr | " ?co:difficulty ")" crlf)
-            (bind ?total (+ ?total ?co:credits))
-            (bind ?found TRUE))))
+   
+   ;; Easy courses first
+   (do-for-all-facts ((?e eligible) (?co course))
+      (and (eq ?e:student-id ?id)
+           (eq ?e:code ?co:code)
+           (eq ?co:difficulty easy))
+      (if (<= (+ ?total ?co:credits) ?max)
+         then
+         (printout t "  " ?co:code " - " ?co:name " (" ?co:credits " cr | " ?co:difficulty ")" crlf)
+         (bind ?total (+ ?total ?co:credits))
+         (bind ?found TRUE)))
+   
+   ;; Then medium courses
+   (do-for-all-facts ((?e eligible) (?co course))
+      (and (eq ?e:student-id ?id)
+           (eq ?e:code ?co:code)
+           (eq ?co:difficulty medium))
+      (if (<= (+ ?total ?co:credits) ?max)
+         then
+         (printout t "  " ?co:code " - " ?co:name " (" ?co:credits " cr | " ?co:difficulty ")" crlf)
+         (bind ?total (+ ?total ?co:credits))
+         (bind ?found TRUE)))
+   
+   ;; Finally hard courses
+   (do-for-all-facts ((?e eligible) (?co course))
+      (and (eq ?e:student-id ?id)
+           (eq ?e:code ?co:code)
+           (eq ?co:difficulty hard))
+      (if (<= (+ ?total ?co:credits) ?max)
+         then
+         (printout t "  " ?co:code " - " ?co:name " (" ?co:credits " cr | " ?co:difficulty ")" crlf)
+         (bind ?total (+ ?total ?co:credits))
+         (bind ?found TRUE)))
+   
    (if (not ?found)
       then
       (printout t "  No eligible courses match your criteria." crlf)
