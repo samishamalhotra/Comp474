@@ -205,9 +205,11 @@
    (course (code ?c) (semester ?avail))
    (test (not (or (eq ?avail both)
                   (and (= ?sem 1) (eq ?avail fall))
-                  (and (= ?sem 2) (eq ?avail winter)))))
+                  (and (= ?sem 2) (eq ?avail winter))
+                  (and (= ?sem 3) (eq ?avail summer)))))
    =>
    (assert (blocked (student-id ?id) (code ?c) (reason wrong-semester))))
+
 
 (defrule block-difficulty-too-hard
    "Block courses that exceed the student's chosen workload preference"
@@ -237,6 +239,20 @@
 ;;; Fire after eligibility is marked but before phase transitions
 ;;; ============================================================
 
+(defrule mark-summer-courses-priority
+   "If student chose Summer, mark eligible summer-offered courses as priority"
+   (declare (salience 10))
+   (phase (current compute-eligibility))
+   (active-student ?id)
+   (session (student-id ?id) (semester 3))
+   (eligible (student-id ?id) (code ?c))
+   (course (code ?c) (semester summer))
+   (not (summer-priority (student-id ?id) (code ?c)))
+   =>
+   (assert (summer-priority (student-id ?id) (code ?c))))
+
+
+
 (defrule explain-blocked-course
    (phase (current compute-eligibility))
    (blocked (student-id ?id) (code ?c) (reason ?r))
@@ -250,7 +266,7 @@
             else (if (eq ?r year-too-low) then "year standing too low"
             else (if (eq ?r wrong-semester) then "not offered this semester"
             else (if (eq ?r difficulty-too-high) then "exceeds preferred workload"
-            else "restricted")))))))))
+            else "restricted")))))))))))
 
 (deffunction count-completed (?id)
    (bind ?n 0)
@@ -418,34 +434,85 @@
    
    (bind ?total 0)
    (bind ?found FALSE)
-   
-   ;; Easy courses first
+
+      ;; If Summer term: print summer-offered eligible courses first (priority)
+   (if (= ?sem 3)
+   then
+   (progn
+      ;; EASY summer-priority first
+      (do-for-all-facts ((?e eligible) (?co course) (?sp summer-priority))
+         (and (eq ?e:student-id ?id)
+              (eq ?e:code ?co:code)
+              (eq ?sp:student-id ?id)
+              (eq ?sp:code ?co:code)
+              (eq ?co:difficulty easy))
+         (if (<= (+ ?total ?co:credits) ?max)
+            then
+            (printout t "  " ?co:code " - " ?co:name " (" ?co:credits " cr | " ?co:difficulty ")" crlf)
+            (bind ?total (+ ?total ?co:credits))
+            (bind ?found TRUE)))
+
+      ;; MEDIUM summer-priority first
+      (do-for-all-facts ((?e eligible) (?co course) (?sp summer-priority))
+         (and (eq ?e:student-id ?id)
+              (eq ?e:code ?co:code)
+              (eq ?sp:student-id ?id)
+              (eq ?sp:code ?co:code)
+              (eq ?co:difficulty medium))
+         (if (<= (+ ?total ?co:credits) ?max)
+            then
+            (printout t "  " ?co:code " - " ?co:name " (" ?co:credits " cr | " ?co:difficulty ")" crlf)
+            (bind ?total (+ ?total ?co:credits))
+            (bind ?found TRUE)))
+
+      ;; HARD summer-priority first
+      (do-for-all-facts ((?e eligible) (?co course) (?sp summer-priority))
+         (and (eq ?e:student-id ?id)
+              (eq ?e:code ?co:code)
+              (eq ?sp:student-id ?id)
+              (eq ?sp:code ?co:code)
+              (eq ?co:difficulty hard))
+         (if (<= (+ ?total ?co:credits) ?max)
+            then
+            (printout t "  " ?co:code " - " ?co:name " (" ?co:credits " cr | " ?co:difficulty ")" crlf)
+            (bind ?total (+ ?total ?co:credits))
+            (bind ?found TRUE)))))
+
+
+   ;; For rest of the terms (NOT SUMMER)
+   ;; Easy courses, not summer
    (do-for-all-facts ((?e eligible) (?co course))
       (and (eq ?e:student-id ?id)
            (eq ?e:code ?co:code)
-           (eq ?co:difficulty easy))
+           (eq ?co:difficulty easy)
+            (not (any-factp ((?sp summer-priority))
+               (and (eq ?sp:student-id ?id) (eq ?sp:code ?co:code)))))
       (if (<= (+ ?total ?co:credits) ?max)
          then
          (printout t "  " ?co:code " - " ?co:name " (" ?co:credits " cr | " ?co:difficulty ")" crlf)
          (bind ?total (+ ?total ?co:credits))
          (bind ?found TRUE)))
    
-   ;; Then medium courses
+   ;; Then medium courses, whe not summer
    (do-for-all-facts ((?e eligible) (?co course))
       (and (eq ?e:student-id ?id)
            (eq ?e:code ?co:code)
-           (eq ?co:difficulty medium))
+           (eq ?co:difficulty medium)
+            (not (any-factp ((?sp summer-priority))
+               (and (eq ?sp:student-id ?id) (eq ?sp:code ?co:code)))))
       (if (<= (+ ?total ?co:credits) ?max)
          then
          (printout t "  " ?co:code " - " ?co:name " (" ?co:credits " cr | " ?co:difficulty ")" crlf)
          (bind ?total (+ ?total ?co:credits))
          (bind ?found TRUE)))
    
-   ;; Finally hard courses
+   ;; Finally hard courses, when not summer
    (do-for-all-facts ((?e eligible) (?co course))
       (and (eq ?e:student-id ?id)
            (eq ?e:code ?co:code)
-           (eq ?co:difficulty hard))
+           (eq ?co:difficulty hard)
+            (not (any-factp ((?sp summer-priority))
+               (and (eq ?sp:student-id ?id) (eq ?sp:code ?co:code)))))
       (if (<= (+ ?total ?co:credits) ?max)
          then
          (printout t "  " ?co:code " - " ?co:name " (" ?co:credits " cr | " ?co:difficulty ")" crlf)

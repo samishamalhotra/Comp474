@@ -31,7 +31,7 @@
    (slot level)
    (slot category)
    (slot difficulty)   ; easy | medium | hard
-   (slot semester)     ; fall | winter | both
+   (slot semester)     ; fall | winter | summer | both
    (slot name))
 
 (deftemplate prerequisite
@@ -68,6 +68,10 @@
    (slot student-id)
    (slot message))
 
+(deftemplate summer-priority
+   (slot student-id)
+   (slot code))
+
 
 ;;; ============================================================
 ;;; COURSE CATALOG
@@ -96,14 +100,14 @@
    (course (code COMP425) (credits 4) (level 4) (category cs-elective)   (difficulty hard)   (semester both)   (name "Computer Vision"))
    (course (code COMP432) (credits 4) (level 4) (category cs-elective)   (difficulty hard)   (semester winter) (name "Machine Learning"))
    (course (code COMP472) (credits 4) (level 4) (category cs-elective)   (difficulty hard)   (semester both)   (name "Artificial Intelligence"))
-   (course (code COMP473) (credits 4) (level 4) (category cs-elective)   (difficulty hard)   (semester fall)   (name "Pattern Recognition"))
+   (course (code COMP473) (credits 4) (level 4) (category cs-elective)   (difficulty hard)   (semester summer)   (name "Pattern Recognition"))
    (course (code COMP474) (credits 4) (level 4) (category cs-elective)   (difficulty hard)   (semester both)   (name "Intelligent Systems"))
    (course (code COMP479) (credits 4) (level 4) (category cs-elective)   (difficulty medium) (semester fall)   (name "Information Retrieval and Web Search"))
 
    ;; ---- CS ELECTIVES — GAMES GROUP ----
    (course (code COMP345) (credits 4) (level 3) (category cs-elective)   (difficulty medium) (semester both)   (name "Advanced Program Design with C++"))
    (course (code COMP371) (credits 4) (level 3) (category cs-elective)   (difficulty medium) (semester both)   (name "Computer Graphics"))
-   (course (code COMP376) (credits 4) (level 3) (category cs-elective)   (difficulty medium) (semester fall)   (name "Introduction to Game Development"))
+   (course (code COMP376) (credits 4) (level 3) (category cs-elective)   (difficulty medium) (semester summer)   (name "Introduction to Game Development"))
    (course (code COMP476) (credits 4) (level 4) (category cs-elective)   (difficulty hard)   (semester winter) (name "Advanced Game Development"))
    (course (code COMP477) (credits 4) (level 4) (category cs-elective)   (difficulty hard)   (semester fall)   (name "Animation for Computer Games"))
 
