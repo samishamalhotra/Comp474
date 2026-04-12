@@ -530,3 +530,143 @@
    (printout t "  Advising complete. Good luck!"             crlf)
    (printout t "==========================================" crlf)
    (retract ?p))
+
+;;; ============================================================
+;;; D2 TODO 2 — CERTAINTY FACTOR RULES
+;;; These rules fire at salience 5 — after blocking (20) and
+;;; eligibility marking (0), but before finish-eligibility (-10).
+;;; They layer a confidence computation on top of the crisp
+;;; eligibility decisions produced in D1.
+;;;
+;;; CF formulas used (from Lab 6):
+;;;   Propagation:   CF_output = CF_fact × CF_rule
+;;;   Combination:   CF_combined = max(CF_1, CF_2, ...)
+;;; ============================================================
+
+;;; ---- HELPER DEFFUNCTION ----
+
+(deffunction count-completed-in-track (?id ?track)
+   "Count how many courses the student has completed in a given track"
+   (bind ?n 0)
+   (do-for-all-facts ((?c completed) (?tc track-course))
+      (and (eq ?c:student-id ?id)
+           (eq ?c:code ?tc:code)
+           (eq ?tc:track ?track))
+      (bind ?n (+ ?n 1)))
+   ?n)
+
+
+;;; ---- GPA TIER CLASSIFIERS (Rules 1-3) ----
+
+(defrule classify-gpa-strong
+   "Classify students with GPA >= 3.5 as strong performers"
+   (declare (salience 5) (CF 0.90))
+   (phase (current compute-eligibility))
+   (active-student ?id)
+   (student (id ?id) (gpa ?g))
+   (test (>= ?g 3.5))
+   =>
+   (assert (gpa-performance-tier (student-id ?id) (tier strong))))
+
+(defrule classify-gpa-average
+   "Classify students with 2.7 <= GPA < 3.5 as average performers"
+   (declare (salience 5) (CF 0.80))
+   (phase (current compute-eligibility))
+   (active-student ?id)
+   (student (id ?id) (gpa ?g))
+   (test (and (>= ?g 2.7) (< ?g 3.5)))
+   =>
+   (assert (gpa-performance-tier (student-id ?id) (tier average))))
+
+(defrule classify-gpa-struggling
+   "Classify students with GPA < 2.7 as struggling performers"
+   (declare (salience 5) (CF 0.75))
+   (phase (current compute-eligibility))
+   (active-student ?id)
+   (student (id ?id) (gpa ?g))
+   (test (< ?g 2.7))
+   =>
+   (assert (gpa-performance-tier (student-id ?id) (tier struggling))))
+
+
+;;; ---- TRACK INTEREST INFERENCE (Rules 4-5) ----
+
+(defrule infer-track-interest-two-courses
+   "If student has completed at least 2 courses in a track, infer interest"
+   (declare (salience 5) (CF 0.70))
+   (phase (current compute-eligibility))
+   (active-student ?id)
+   (track-course (track ?t))
+   (test (>= (count-completed-in-track ?id ?t) 2))
+   =>
+   (assert (track-interest (student-id ?id) (track ?t))))
+
+(defrule infer-track-interest-three-plus
+   "Strengthen track interest when student has 3+ courses in a track"
+   (declare (salience 5) (CF 0.90))
+   (phase (current compute-eligibility))
+   (active-student ?id)
+   (track-course (track ?t))
+   (test (>= (count-completed-in-track ?id ?t) 3))
+   =>
+   (assert (track-interest (student-id ?id) (track ?t))))
+
+
+;;; ---- PASS LIKELIHOOD RULES (Rules 6-8) ----
+;;; These use CF propagation: the difficulty-pass-rate fact's CF
+;;; multiplies through the rule CF to produce the output CF.
+
+(defrule pass-likelihood-strong-gpa
+   "Strong-GPA students have high pass confidence on eligible courses"
+   (declare (salience 5) (CF 0.85))
+   (phase (current compute-eligibility))
+   (eligible (student-id ?id) (code ?c))
+   (course (code ?c) (difficulty ?d))
+   (difficulty-pass-rate (difficulty ?d))
+   (gpa-performance-tier (student-id ?id) (tier strong))
+   =>
+   (assert (recommendation-confidence (student-id ?id) (code ?c))))
+
+(defrule pass-likelihood-average-gpa
+   "Average-GPA students have moderate pass confidence"
+   (declare (salience 5) (CF 0.65))
+   (phase (current compute-eligibility))
+   (eligible (student-id ?id) (code ?c))
+   (course (code ?c) (difficulty ?d))
+   (difficulty-pass-rate (difficulty ?d))
+   (gpa-performance-tier (student-id ?id) (tier average))
+   =>
+   (assert (recommendation-confidence (student-id ?id) (code ?c))))
+
+(defrule pass-likelihood-struggling-gpa
+   "Struggling students have lower pass confidence across all difficulties"
+   (declare (salience 5) (CF 0.40))
+   (phase (current compute-eligibility))
+   (eligible (student-id ?id) (code ?c))
+   (course (code ?c) (difficulty ?d))
+   (difficulty-pass-rate (difficulty ?d))
+   (gpa-performance-tier (student-id ?id) (tier struggling))
+   =>
+   (assert (recommendation-confidence (student-id ?id) (code ?c))))
+
+
+;;; ---- TRACK MATCH RECOMMENDATION (Rules 9-10) ----
+
+(defrule recommend-course-track-match
+   "Recommend courses that match the student's inferred track interest"
+   (declare (salience 5) (CF 0.85))
+   (phase (current compute-eligibility))
+   (eligible (student-id ?id) (code ?c))
+   (track-course (track ?t) (code ?c))
+   (track-interest (student-id ?id) (track ?t))
+   =>
+   (assert (recommendation-confidence (student-id ?id) (code ?c))))
+
+(defrule recommend-core-course-priority
+   "Core courses get a recommendation boost regardless of track"
+   (declare (salience 5) (CF 0.75))
+   (phase (current compute-eligibility))
+   (eligible (student-id ?id) (code ?c))
+   (course (code ?c) (category core))
+   =>
+   (assert (recommendation-confidence (student-id ?id) (code ?c))))

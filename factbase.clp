@@ -72,6 +72,34 @@
    (slot student-id)
    (slot code))
 
+;;; ============================================================
+;;; D2 TODO 2 — UNCERTAINTY TEMPLATES (Certainty Factors)
+;;; ============================================================
+
+(deftemplate difficulty-pass-rate
+   "Baseline pass-rate confidence indexed by course difficulty"
+   (slot difficulty))
+
+(deftemplate gpa-performance-tier
+   "Student's GPA tier, inferred from numeric GPA"
+   (slot student-id)
+   (slot tier))   ; strong | average | struggling
+
+(deftemplate track-course
+   "Static mapping of a course to a track (crisp, no CF)"
+   (slot track)   ; ai | games | data-web
+   (slot code))
+
+(deftemplate track-interest
+   "Student's inferred interest in a track, asserted dynamically with CF"
+   (slot student-id)
+   (slot track))
+
+(deftemplate recommendation-confidence
+   "Per-student per-course recommendation confidence (output fact)"
+   (slot student-id)
+   (slot code))
+
 
 ;;; ============================================================
 ;;; COURSE CATALOG
@@ -179,6 +207,44 @@
    (gpa-requirement (course COMP432) (minimum 2.7))
 )
 
+
+;;; ============================================================
+;;; D2 TODO 2 — BASELINE PASS RATES
+;;; Each fact carries a CF reflecting how reliably a generic student
+;;; passes a course of the given difficulty.
+;;; ============================================================
+
+(deffacts difficulty-pass-rates
+   (difficulty-pass-rate (difficulty easy))   CF 0.90
+   (difficulty-pass-rate (difficulty medium)) CF 0.70
+   (difficulty-pass-rate (difficulty hard))   CF 0.45)
+
+
+;;; ============================================================
+;;; D2 TODO 2 — TRACK COURSES
+;;; Crisp facts (no CF) — these are objective course classifications.
+;;; ============================================================
+
+(deffacts track-courses
+   ;; AI track
+   (track-course (track ai) (code COMP472))
+   (track-course (track ai) (code COMP474))
+   (track-course (track ai) (code COMP432))
+   (track-course (track ai) (code COMP425))
+   (track-course (track ai) (code COMP473))
+   ;; Games track
+   (track-course (track games) (code COMP345))
+   (track-course (track games) (code COMP371))
+   (track-course (track games) (code COMP376))
+   (track-course (track games) (code COMP476))
+   (track-course (track games) (code COMP477))
+   ;; Data / Web track
+   (track-course (track data-web) (code COMP333))
+   (track-course (track data-web) (code COMP353))
+   (track-course (track data-web) (code COMP445))
+   (track-course (track data-web) (code SOEN287))
+   (track-course (track data-web) (code SOEN321))
+   (track-course (track data-web) (code SOEN357)))
 
 ;;; ============================================================
 ;;; STUDENT DATABASE
