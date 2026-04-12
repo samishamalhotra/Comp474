@@ -654,7 +654,7 @@
 
 (defrule recommend-course-track-match
    "Recommend courses that match the student's inferred track interest"
-   (declare (salience 5) (CF 0.85))
+   (declare (salience 5) (CF 0.95))
    (phase (current compute-eligibility))
    (eligible (student-id ?id) (code ?c))
    (track-course (track ?t) (code ?c))

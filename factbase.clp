@@ -296,6 +296,20 @@
    (completed (student-id S1004) (code COMP371))
    (completed (student-id S1004) (code MATH251))
    (completed (student-id S1004) (code MATH252))
+
+   ;; S1005 — Year 4, strong GPA, clearly on the AI track
+   ;; Designed to exercise track-interest inference + Rule 9 (track match)
+   (student (id S1005) (year 4) (gpa 3.7))
+   (completed (student-id S1005) (code COMP248))
+   (completed (student-id S1005) (code COMP249))
+   (completed (student-id S1005) (code COMP232))
+   (completed (student-id S1005) (code COMP233))
+   (completed (student-id S1005) (code COMP228))
+   (completed (student-id S1005) (code COMP352))
+   (completed (student-id S1005) (code COMP472))
+   (completed (student-id S1005) (code COMP474))
+   (completed (student-id S1005) (code ENCS282))
+   (completed (student-id S1005) (code MATH251))
 )
 
 
