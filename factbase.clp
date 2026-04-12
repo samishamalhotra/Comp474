@@ -100,6 +100,21 @@
    (slot student-id)
    (slot code))
 
+(deftemplate pass-likelihood
+   "Intermediate fact: per-course pass likelihood from GPA tier × difficulty"
+   (slot student-id)
+   (slot code))
+
+(deftemplate track-bonus
+   "Intermediate fact: per-course bonus from track-interest match"
+   (slot student-id)
+   (slot code))
+
+(deftemplate core-bonus
+   "Intermediate fact: per-course bonus for core courses"
+   (slot student-id)
+   (slot code))
+
 
 ;;; ============================================================
 ;;; COURSE CATALOG

@@ -526,10 +526,23 @@
       else
       (printout t "------------------------------------------" crlf)
       (printout t "  Total recommended : " ?total " credits"  crlf))
-   (printout t "==========================================" crlf)
-   (printout t "  Advising complete. Good luck!"             crlf)
-   (printout t "==========================================" crlf)
-   (retract ?p))
+      (printout t "==========================================" crlf)
+      (printout t "  RECOMMENDATION CONFIDENCE SCORES (D2)   " crlf)
+      (printout t "  (Higher CF = stronger recommendation)   " crlf)
+      (printout t "==========================================" crlf)
+
+      ;; Print each eligible course's recommendation-confidence with its CF
+      (do-for-all-facts ((?rc recommendation-confidence) (?co course))
+         (and (eq ?rc:student-id ?id)
+            (eq ?rc:code ?co:code))
+         (printout t "  CF " (get-cf ?rc) " | " ?co:code 
+                  " - " ?co:name 
+                  " (" ?co:difficulty ")" crlf))
+
+      (printout t "==========================================" crlf)
+      (printout t "  Advising complete. Good luck!"             crlf)
+      (printout t "==========================================" crlf)
+      (retract ?p))
 
 ;;; ============================================================
 ;;; D2 TODO 2 — CERTAINTY FACTOR RULES
@@ -625,7 +638,7 @@
    (difficulty-pass-rate (difficulty ?d))
    (gpa-performance-tier (student-id ?id) (tier strong))
    =>
-   (assert (recommendation-confidence (student-id ?id) (code ?c))))
+   (assert (pass-likelihood (student-id ?id) (code ?c))))
 
 (defrule pass-likelihood-average-gpa
    "Average-GPA students have moderate pass confidence"
@@ -636,7 +649,8 @@
    (difficulty-pass-rate (difficulty ?d))
    (gpa-performance-tier (student-id ?id) (tier average))
    =>
-   (assert (recommendation-confidence (student-id ?id) (code ?c))))
+   (assert (pass-likelihood (student-id ?id) (code ?c))))
+
 
 (defrule pass-likelihood-struggling-gpa
    "Struggling students have lower pass confidence across all difficulties"
@@ -647,7 +661,8 @@
    (difficulty-pass-rate (difficulty ?d))
    (gpa-performance-tier (student-id ?id) (tier struggling))
    =>
-   (assert (recommendation-confidence (student-id ?id) (code ?c))))
+   (assert (pass-likelihood (student-id ?id) (code ?c))))
+
 
 
 ;;; ---- TRACK MATCH RECOMMENDATION (Rules 9-10) ----
@@ -660,7 +675,7 @@
    (track-course (track ?t) (code ?c))
    (track-interest (student-id ?id) (track ?t))
    =>
-   (assert (recommendation-confidence (student-id ?id) (code ?c))))
+   (assert (track-bonus (student-id ?id) (code ?c))))
 
 (defrule recommend-core-course-priority
    "Core courses get a recommendation boost regardless of track"
@@ -669,4 +684,39 @@
    (eligible (student-id ?id) (code ?c))
    (course (code ?c) (category core))
    =>
-   (assert (recommendation-confidence (student-id ?id) (code ?c))))
+   (assert (core-bonus (student-id ?id) (code ?c))))
+
+;;; ---- AGGREGATOR RULE (Rule 11) ----
+;;; Combines pass-likelihood, track-bonus, and core-bonus into a final
+;;; recommendation-confidence using explicit max combination.
+;;;
+;;; This rule fires at salience 3 — after Rules 6-10 (salience 5) have
+;;; produced their intermediate facts. It uses (max ...) to compute the
+;;; combined CF, matching the formula from Lab 6 slide 13:
+;;;   CF_combined = max(CF_1, CF_2, ...)
+;;;
+;;; The CF on this rule is 1.0 because we are not adding any new
+;;; uncertainty — we are just selecting the strongest existing signal.
+
+(defrule aggregate-recommendation-confidence
+   "Combine all CF signals for an eligible course via max"
+   (declare (salience 3) (CF 1.0))
+   (phase (current compute-eligibility))
+   (eligible (student-id ?id) (code ?c))
+   =>
+   (bind ?best 0.0)
+   ;; Check pass-likelihood
+   (do-for-all-facts ((?pl pass-likelihood))
+      (and (eq ?pl:student-id ?id) (eq ?pl:code ?c))
+      (if (> (get-cf ?pl) ?best) then (bind ?best (get-cf ?pl))))
+   ;; Check track-bonus
+   (do-for-all-facts ((?tb track-bonus))
+      (and (eq ?tb:student-id ?id) (eq ?tb:code ?c))
+      (if (> (get-cf ?tb) ?best) then (bind ?best (get-cf ?tb))))
+   ;; Check core-bonus
+   (do-for-all-facts ((?cb core-bonus))
+      (and (eq ?cb:student-id ?id) (eq ?cb:code ?c))
+      (if (> (get-cf ?cb) ?best) then (bind ?best (get-cf ?cb))))
+   ;; Only assert if at least one signal fired
+   (if (> ?best 0.0) then
+      (assert (recommendation-confidence (student-id ?id) (code ?c)) CF ?best)))
