@@ -386,6 +386,201 @@
    (assert (warning (student-id ?id)
                    (message "Many hard courses are available - consider balancing your schedule with easier courses"))))
 
+;;; ============================================================
+;;; D2 TODO 3 — FUZZY RECOMMENDATION LAYER
+;;; Runs during compute-eligibility, after eligible courses exist,
+;;; before finish-eligibility switches to output.
+;;; ============================================================
+
+(defrule create-fuzzy-course-target
+   "Every eligible course becomes a target for fuzzy evaluation"
+   (declare (salience 4))
+   (phase (current compute-eligibility))
+   (eligible (student-id ?id) (code ?c))
+   (not (fuzzy-course-target (student-id ?id) (code ?c)))
+   =>
+   (assert (fuzzy-course-target (student-id ?id) (code ?c))))
+
+(defrule map-light-workload-to-score
+   (declare (salience 4))
+   (phase (current compute-eligibility))
+   (session (student-id ?id) (workload light))
+   (not (workload-score (student-id ?id) (value ?)))
+   =>
+   (assert (workload-score (student-id ?id) (value 2))))
+
+(defrule map-moderate-workload-to-score
+   (declare (salience 4))
+   (phase (current compute-eligibility))
+   (session (student-id ?id) (workload moderate))
+   (not (workload-score (student-id ?id) (value ?)))
+   =>
+   (assert (workload-score (student-id ?id) (value 5))))
+
+(defrule map-heavy-workload-to-score
+   (declare (salience 4))
+   (phase (current compute-eligibility))
+   (session (student-id ?id) (workload heavy))
+   (not (workload-score (student-id ?id) (value ?)))
+   =>
+   (assert (workload-score (student-id ?id) (value 8))))
+
+(defrule begin-fuzzy-evaluation-for-course
+   "Load fuzzy input facts for one eligible course at a time"
+   (declare (salience 3))
+   (phase (current compute-eligibility))
+   (fuzzy-course-target (student-id ?id) (code ?c))
+   (not (fuzzy-course-evaluated (student-id ?id) (code ?c)))
+   (not (active-fuzzy-course (student-id ?any) (code ?anyc)))
+   (student (id ?id) (gpa ?g))
+   (workload-score (student-id ?id) (value ?w))
+   (course-difficulty-score (code ?c) (value ?d))
+   =>
+   (do-for-all-facts ((?old fuzzy-recommendation)) TRUE (retract ?old))
+   (assert (active-fuzzy-course (student-id ?id) (code ?c)))
+   (assert (fuzzy-gpa (?g 1.0)))
+   (assert (fuzzy-workload (?w 1.0)))
+   (assert (fuzzy-difficulty (?d 1.0)))
+)
+;;; ---- Full TODO 3 fuzzy rules: 9 GPA+difficulty + 3 workload ----
+
+(defrule fuzzy-low-gpa-easy-course
+   (declare (salience 2))
+   (phase (current compute-eligibility))
+   (active-fuzzy-course (student-id ?id) (code ?c))
+   (fuzzy-gpa low)
+   (fuzzy-difficulty easy)
+   =>
+   (assert (fuzzy-recommendation medium)))
+
+(defrule fuzzy-low-gpa-medium-course
+   (declare (salience 2))
+   (phase (current compute-eligibility))
+   (active-fuzzy-course (student-id ?id) (code ?c))
+   (fuzzy-gpa low)
+   (fuzzy-difficulty medium)
+   =>
+   (assert (fuzzy-recommendation low)))
+
+(defrule fuzzy-low-gpa-hard-course
+   (declare (salience 2))
+   (phase (current compute-eligibility))
+   (active-fuzzy-course (student-id ?id) (code ?c))
+   (fuzzy-gpa low)
+   (fuzzy-difficulty hard)
+   =>
+   (assert (fuzzy-recommendation low)))
+
+(defrule fuzzy-medium-gpa-easy-course
+   (declare (salience 2))
+   (phase (current compute-eligibility))
+   (active-fuzzy-course (student-id ?id) (code ?c))
+   (fuzzy-gpa medium)
+   (fuzzy-difficulty easy)
+   =>
+   (assert (fuzzy-recommendation high)))
+
+(defrule fuzzy-medium-gpa-medium-course
+   (declare (salience 2))
+   (phase (current compute-eligibility))
+   (active-fuzzy-course (student-id ?id) (code ?c))
+   (fuzzy-gpa medium)
+   (fuzzy-difficulty medium)
+   =>
+   (assert (fuzzy-recommendation medium)))
+
+(defrule fuzzy-medium-gpa-hard-course
+   (declare (salience 2))
+   (phase (current compute-eligibility))
+   (active-fuzzy-course (student-id ?id) (code ?c))
+   (fuzzy-gpa medium)
+   (fuzzy-difficulty hard)
+   =>
+   (assert (fuzzy-recommendation low)))
+
+(defrule fuzzy-high-gpa-easy-course
+   (declare (salience 2))
+   (phase (current compute-eligibility))
+   (active-fuzzy-course (student-id ?id) (code ?c))
+   (fuzzy-gpa high)
+   (fuzzy-difficulty easy)
+   =>
+   (assert (fuzzy-recommendation high)))
+
+(defrule fuzzy-high-gpa-medium-course
+   (declare (salience 2))
+   (phase (current compute-eligibility))
+   (active-fuzzy-course (student-id ?id) (code ?c))
+   (fuzzy-gpa high)
+   (fuzzy-difficulty medium)
+   =>
+   (assert (fuzzy-recommendation high)))
+
+(defrule fuzzy-high-gpa-hard-course
+   (declare (salience 2))
+   (phase (current compute-eligibility))
+   (active-fuzzy-course (student-id ?id) (code ?c))
+   (fuzzy-gpa high)
+   (fuzzy-difficulty hard)
+   =>
+   (assert (fuzzy-recommendation medium)))
+
+(defrule fuzzy-light-workload-hard-course
+   (declare (salience 2))
+   (phase (current compute-eligibility))
+   (active-fuzzy-course (student-id ?id) (code ?c))
+   (fuzzy-workload light)
+   (fuzzy-difficulty hard)
+   =>
+   (assert (fuzzy-recommendation low)))
+
+(defrule fuzzy-moderate-workload-medium-course
+   (declare (salience 2))
+   (phase (current compute-eligibility))
+   (active-fuzzy-course (student-id ?id) (code ?c))
+   (fuzzy-workload moderate)
+   (fuzzy-difficulty medium)
+   =>
+   (assert (fuzzy-recommendation medium)))
+
+(defrule fuzzy-heavy-workload-hard-course
+   (declare (salience 2))
+   (phase (current compute-eligibility))
+   (active-fuzzy-course (student-id ?id) (code ?c))
+   (fuzzy-workload heavy)
+   (fuzzy-difficulty hard)
+   =>
+   (assert (fuzzy-recommendation high)))
+
+(defrule finalize-fuzzy-course
+   "Defuzzify the fuzzy recommendation and store a crisp result"
+   (declare (salience 1))
+   (phase (current compute-eligibility))
+   ?af <- (active-fuzzy-course (student-id ?id) (code ?c))
+   ?fg <- (fuzzy-gpa ?)
+   ?fw <- (fuzzy-workload ?)
+   ?fd <- (fuzzy-difficulty ?)
+   ?fr <- (fuzzy-recommendation ?)
+   =>
+   (bind ?score (moment-defuzzify ?fr))
+   (bind ?label
+      (if (< ?score 4.0)
+         then low
+         else
+         (if (< ?score 7.0)
+            then medium
+            else high)))
+   (assert (fuzzy-course-recommendation
+              (student-id ?id)
+              (code ?c)
+              (score ?score)
+              (label ?label)))
+   (assert (fuzzy-course-evaluated (student-id ?id) (code ?c)))
+   (retract ?af)
+   (retract ?fg)
+   (retract ?fw)
+   (retract ?fd)
+   (retract ?fr))
 
 (defrule finish-eligibility
    "Advance to the output phase once eligibility is fully determined"
@@ -538,6 +733,20 @@
          (printout t "  CF " (get-cf ?rc) " | " ?co:code 
                   " - " ?co:name 
                   " (" ?co:difficulty ")" crlf))
+
+                        (printout t crlf
+         "==========================================" crlf)
+      (printout t "  FUZZY RECOMMENDATION SCORES (TODO 3)    " crlf)
+      (printout t "==========================================" crlf)
+
+      (do-for-all-facts ((?fr fuzzy-course-recommendation) (?co course))
+         (and (eq ?fr:student-id ?id)
+              (eq ?fr:code ?co:code))
+         (printout t "  " ?fr:label
+                  " | score " ?fr:score
+                  " | " ?co:code
+                  " - " ?co:name
+                  crlf))
 
       (printout t "==========================================" crlf)
       (printout t "  Advising complete. Good luck!"             crlf)
@@ -720,3 +929,4 @@
    ;; Only assert if at least one signal fired
    (if (> ?best 0.0) then
       (assert (recommendation-confidence (student-id ?id) (code ?c)) CF ?best)))
+

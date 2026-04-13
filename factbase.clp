@@ -261,6 +261,134 @@
    (track-course (track data-web) (code SOEN321))
    (track-course (track data-web) (code SOEN357)))
 
+   ;;; ============================================================
+;;; D2 TODO 3 — FUZZY TEMPLATES
+;;; Fuzzy advisory layer built on top of crisp eligibility
+;;; ============================================================
+
+(deftemplate fuzzy-gpa
+   0.0 4.3 points
+   (
+      (low    (z 0.0 2.3))
+      (medium (pi 1.0 2.8))
+      (high   (s 3.2 4.3))
+   )
+)
+
+(deftemplate fuzzy-difficulty
+   0 10 points
+   (
+      (easy   (z 0 4))
+      (medium (pi 2 5))
+      (hard   (s 6 10))
+   )
+)
+
+(deftemplate fuzzy-workload
+   0 10 points
+   (
+      (light    (z 0 4))
+      (moderate (pi 2 5))
+      (heavy    (s 6 10))
+   )
+)
+
+(deftemplate fuzzy-recommendation
+   0 10 points
+   (
+      (low    (z 0 4))
+      (medium (pi 2 5))
+      (high   (s 6 10))
+   )
+)
+
+(deftemplate fuzzy-course-target
+   "Helper fact for TODO 3: a course eligible for fuzzy recommendation"
+   (slot student-id)
+   (slot code)
+)
+
+(deftemplate course-difficulty-score
+   "Numeric difficulty score used to fuzzify the course's crisp difficulty label"
+   (slot code)
+   (slot value)
+)
+
+(deftemplate workload-score
+   "Numeric workload score used to fuzzify the session workload label"
+   (slot student-id)
+   (slot value)
+)
+
+(deftemplate active-fuzzy-course
+   "The single eligible course currently being evaluated by the fuzzy layer"
+   (slot student-id)
+   (slot code))
+
+(deftemplate fuzzy-course-evaluated
+   "Marks that a course has already gone through the fuzzy layer"
+   (slot student-id)
+   (slot code))
+
+(deftemplate fuzzy-course-recommendation
+   "Stores the final crisp score/label produced by the fuzzy layer"
+   (slot student-id)
+   (slot code)
+   (slot score)
+   (slot label))
+
+;;; ============================================================
+;;; D2 TODO 3 — STATIC NUMERIC BRIDGES FOR FUZZY INPUTS
+;;; These convert existing crisp labels into numeric values
+;;; ============================================================
+
+(deffacts fuzzy-course-difficulty-values
+   ;; Core
+   (course-difficulty-score (code COMP228) (value 2))
+   (course-difficulty-score (code COMP232) (value 5))
+   (course-difficulty-score (code COMP233) (value 5))
+   (course-difficulty-score (code COMP248) (value 2))
+   (course-difficulty-score (code COMP249) (value 5))
+   (course-difficulty-score (code COMP335) (value 8))
+   (course-difficulty-score (code COMP346) (value 8))
+   (course-difficulty-score (code COMP352) (value 8))
+   (course-difficulty-score (code COMP348) (value 5))
+   (course-difficulty-score (code COMP354) (value 5))
+
+   ;; Complementary
+   (course-difficulty-score (code ENCS282) (value 2))
+   (course-difficulty-score (code ENCS393) (value 5))
+
+   ;; AI / Theory / 4xx electives
+   (course-difficulty-score (code COMP425) (value 8))
+   (course-difficulty-score (code COMP432) (value 8))
+   (course-difficulty-score (code COMP472) (value 8))
+   (course-difficulty-score (code COMP473) (value 8))
+   (course-difficulty-score (code COMP474) (value 8))
+   (course-difficulty-score (code COMP479) (value 5))
+
+   ;; Graphics / Games / Software electives
+   (course-difficulty-score (code COMP345) (value 5))
+   (course-difficulty-score (code COMP371) (value 5))
+   (course-difficulty-score (code COMP376) (value 5))
+   (course-difficulty-score (code COMP476) (value 8))
+   (course-difficulty-score (code COMP477) (value 8))
+
+   ;; Data / Web / Security / UI electives
+   (course-difficulty-score (code COMP333) (value 5))
+   (course-difficulty-score (code COMP353) (value 5))
+   (course-difficulty-score (code COMP445) (value 8))
+   (course-difficulty-score (code SOEN287) (value 2))
+   (course-difficulty-score (code SOEN321) (value 5))
+   (course-difficulty-score (code SOEN357) (value 2))
+
+   ;; Math electives
+   (course-difficulty-score (code COMP339) (value 8))
+   (course-difficulty-score (code COMP361) (value 5))
+   (course-difficulty-score (code MATH251) (value 5))
+   (course-difficulty-score (code MATH252) (value 8))
+)
+
 ;;; ============================================================
 ;;; STUDENT DATABASE
 ;;; ============================================================
@@ -326,7 +454,17 @@
    (completed (student-id S1005) (code ENCS282))
    (completed (student-id S1005) (code MATH251))
 )
+(deffacts fuzzy-test-student
+   ;; Temporary test student for TODO 3
+   (student
+      (id S9999)
+      (year 2)
+      (gpa 2.8))
 
+   (completed (student-id S9999) (code COMP248))
+   (completed (student-id S9999) (code COMP249))
+   (completed (student-id S9999) (code ENCS282))
+)
 
 ;;; ============================================================
 ;;; INITIAL STATE
