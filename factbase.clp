@@ -269,36 +269,72 @@
 (deftemplate fuzzy-gpa
    0.0 4.3 points
    (
-      (low    (z 0.0 2.3))
-      (medium (pi 1.0 2.8))
-      (high   (s 3.2 4.3))
+      (low
+         (0.0 1.0)
+         (2.0 1.0)
+         (2.7 0.0))
+      (medium
+         (2.0 0.0)
+         (2.8 1.0)
+         (3.6 0.0))
+      (high
+         (3.0 0.0)
+         (3.6 1.0)
+         (4.3 1.0))
    )
 )
 
 (deftemplate fuzzy-difficulty
    0 10 points
    (
-      (easy   (z 0 4))
-      (medium (pi 2 5))
-      (hard   (s 6 10))
+      (easy
+         (0 1.0)
+         (2 1.0)
+         (4 0.0))
+      (medium
+         (2 0.0)
+         (5 1.0)
+         (8 0.0))
+      (hard
+         (6 0.0)
+         (8 1.0)
+         (10 1.0))
    )
 )
 
 (deftemplate fuzzy-workload
    0 10 points
    (
-      (light    (z 0 4))
-      (moderate (pi 2 5))
-      (heavy    (s 6 10))
+      (light
+         (0 1.0)
+         (2 1.0)
+         (4 0.0))
+      (moderate
+         (2 0.0)
+         (5 1.0)
+         (8 0.0))
+      (heavy
+         (6 0.0)
+         (8 1.0)
+         (10 1.0))
    )
 )
 
 (deftemplate fuzzy-recommendation
    0 10 points
    (
-      (low    (z 0 4))
-      (medium (pi 2 5))
-      (high   (s 6 10))
+      (low
+         (0 1.0)
+         (2 1.0)
+         (5 0.0))
+      (medium
+         (2.5 0.0)
+         (5 1.0)
+         (7.5 0.0))
+      (high
+         (5 0.0)
+         (8 1.0)
+         (10 1.0))
    )
 )
 
@@ -337,6 +373,12 @@
    (slot score)
    (slot label))
 
+(deftemplate course-score-contribution
+   "A numeric recommendation contribution for one course from one TODO 3 rule"
+   (slot student-id)
+   (slot code)
+   (slot value)
+   (slot source))
 ;;; ============================================================
 ;;; D2 TODO 3 — STATIC NUMERIC BRIDGES FOR FUZZY INPUTS
 ;;; These convert existing crisp labels into numeric values
